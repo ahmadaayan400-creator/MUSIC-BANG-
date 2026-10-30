@@ -809,7 +809,7 @@ local function updateList()
 				btn.Parent = scrollingFrame
 				Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
 				local rowStroke = Instance.new("UIStroke", btn)
-				rowStroke.Color = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 60, 20)
+				rowStroke.Color = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(40, 25, 5)
 				rowStroke.Thickness = 1
 				rowStroke.Transparency = selected and 0.15 or 0.55
 
@@ -849,7 +849,7 @@ end)
 
 nextBtn.MouseButton1Click:Connect(function()
 	if #selectedPlayers == 0 then
-		notify("EGO EMPIRE", "No targets", 2)
+		notify("AAYAN V3", "No targets", 2)
 		return
 	end
 	currentTargetIndex = currentTargetIndex + 1
@@ -857,7 +857,7 @@ nextBtn.MouseButton1Click:Connect(function()
 	selectedPlayer = selectedPlayers[currentTargetIndex]
 	lastTargetSwitchTime = tick()
 	if selectedPlayer then
-		notify("EGO EMPIRE", "Next: " .. selectedPlayer.DisplayName, 2)
+		notify("AAYAN V3", "Next: " .. selectedPlayer.DisplayName, 2)
 	end
 end)
 
@@ -903,7 +903,7 @@ end)
 toggleButton.MouseButton1Click:Connect(function()
 	if isAttached then
 		stopBang()
-		notify("EGO EMPIRE", "Bang stopped", 2)
+		notify("AAYAN V3", "Bang stopped", 2)
 		return
 	end
 
@@ -918,7 +918,7 @@ toggleButton.MouseButton1Click:Connect(function()
 	refreshCounter()
 
 	if #selectedPlayers == 0 then
-		notify("EGO EMPIRE", "Pehle player SELECT karo (list me click)", 4)
+		notify("AAYAN V3", "Pehle player SELECT karo (list me click KARKE BETE)", 4)
 		return
 	end
 
@@ -931,7 +931,7 @@ toggleButton.MouseButton1Click:Connect(function()
 		myHRP = myChar:WaitForChild("HumanoidRootPart", 5)
 	end
 	if not myHRP then
-		notify("EGO EMPIRE", "Character not ready — wait & retry", 3)
+		notify("AAYAN V3", "Character not ready — wait & retry", 3)
 		return
 	end
 
@@ -940,7 +940,7 @@ toggleButton.MouseButton1Click:Connect(function()
 	pauseBtn.Text = "PAUSE"
 	pauseBtn.TextColor3 = TEXT_DIM
 	toggleButton.Text = "> KILL_PROCESS"
-	toggleButton.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+	toggleButton.BackgroundColor3 = Color3.fromRGB(40, 15, 0)
 	toggleButton.TextColor3 = DANGER
 	lastSwitchTime = tick()
 	lastTargetSwitchTime = tick()
@@ -1118,7 +1118,7 @@ toggleButton.MouseButton1Click:Connect(function()
 		end)
 	end)
 
-	notify("EGO EMPIRE", "Bang started · " .. tostring(#selectedPlayers) .. " target(s)", 3)
+	notify("AAYAN V3", "Bang started · " .. tostring(#selectedPlayers) .. " target(s)", 3)
 end)
 
 -- RGB live border + title (hacker pulse)
