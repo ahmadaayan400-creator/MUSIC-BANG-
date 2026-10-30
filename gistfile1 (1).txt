@@ -1,0 +1,1142 @@
+-- ============================================
+-- 🍁 EGO EMPIRE™ BANG PANEL 🍁
+-- Yellow theme · transparent glass · multi-target
+-- BodyVelocity + BodyGyro sticky engine
+-- EXTRA: LOOP interval · NEXT · PAUSE · counter · live list
+-- ============================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+if not player then
+	warn("[EGO EMPIRE] LocalPlayer missing")
+	return
+end
+
+-- Theme: HACKER + RGB + green names
+local ACCENT = Color3.fromRGB(0, 255, 70)          -- matrix green
+local ACCENT_DIM = Color3.fromRGB(0, 160, 40)
+local BG = Color3.fromRGB(4, 8, 4)                 -- near-black green tint
+local BG_PANEL = Color3.fromRGB(8, 14, 8)
+local TEXT = Color3.fromRGB(200, 255, 200)
+local TEXT_DIM = Color3.fromRGB(80, 180, 80)
+local NAME_GREEN = Color3.fromRGB(0, 255, 90)      -- unselected names = green
+local NAME_SEL = Color3.fromRGB(255, 255, 255)     -- selected target = WHITE
+local DANGER = Color3.fromRGB(255, 50, 50)
+local OK = Color3.fromRGB(0, 255, 120)
+
+local TRANSP = 0.18
+
+local function rgbColor(t)
+	local r = math.sin(t) * 0.5 + 0.5
+	local g = math.sin(t + 2.094) * 0.5 + 0.5
+	local b = math.sin(t + 4.188) * 0.5 + 0.5
+	return Color3.new(r, g, b)
+end
+
+-- Animation & audio
+local bangAnimId = "rbxassetid://5918726674"
+local activeTrack = nil
+local soundMuted = false
+local animMuted = false
+
+local sound1 = Instance.new("Sound")
+sound1.SoundId = "rbxassetid://95656642853883"
+sound1.Volume = 1.5
+
+local sound2 = Instance.new("Sound")
+sound2.SoundId = "rbxassetid://78435052000321"
+sound2.Volume = 1.5
+
+local sound3 = Instance.new("Sound")
+sound3.SoundId = "rbxassetid://136178701391977"
+sound3.Volume = 1.5
+sound3.Looped = true
+
+local leaveSound = Instance.new("Sound")
+leaveSound.SoundId = "rbxassetid://96880277560628"
+leaveSound.Volume = 1.5
+
+local lastSoundTime = 0
+local soundGap = 7
+
+local function stopAllSounds()
+	pcall(function()
+		sound1:Stop()
+		sound2:Stop()
+		sound3:Stop()
+	end)
+end
+
+local function handleAudioForMode(currentMode)
+	if soundMuted then
+		stopAllSounds()
+		return
+	end
+	if tick() - lastSoundTime < soundGap then return end
+	if currentMode == "Normal" then
+		if sound2.IsPlaying then sound2:Stop() end
+		if sound3.IsPlaying then sound3:Stop() end
+		if not sound1.IsPlaying then
+			sound1:Play()
+			lastSoundTime = tick()
+		end
+	elseif currentMode == "Face Bang" then
+		if sound1.IsPlaying then sound1:Stop() end
+		if sound3.IsPlaying then sound3:Stop() end
+		if not sound2.IsPlaying then
+			sound2:Play()
+			lastSoundTime = tick()
+		end
+	elseif currentMode == "Auto Switch" then
+		if sound1.IsPlaying then sound1:Stop() end
+		if sound2.IsPlaying then sound2:Stop() end
+		if not sound3.IsPlaying then
+			sound3:Play()
+			lastSoundTime = tick()
+		end
+	end
+end
+
+local function getHumanoid()
+	return player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+end
+
+local function notify(title, text, dur)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = title,
+			Text = text,
+			Duration = dur or 3,
+		})
+	end)
+end
+
+-- =========================================================
+-- CLEAN RE-EXEC
+-- =========================================================
+if _G.EgoEmpireBangStorage then
+	local S = _G.EgoEmpireBangStorage
+	if S.CurrentGui then pcall(function() S.CurrentGui:Destroy() end) end
+	if S.ActiveConnection then pcall(function() S.ActiveConnection:Disconnect() end) end
+	if S.PlatformPart then pcall(function() S.PlatformPart:Destroy() end) end
+	if S.BV then pcall(function() S.BV:Destroy() end) end
+	if S.BG then pcall(function() S.BG:Destroy() end) end
+	pcall(function()
+		local myChar = player.Character
+		if myChar then
+			local hum = myChar:FindFirstChildOfClass("Humanoid")
+			if hum then
+				for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+					if track.Animation and track.Animation.AnimationId == bangAnimId then
+						track:Stop()
+					end
+				end
+				hum.PlatformStand = false
+			end
+			local torso = myChar:FindFirstChild("Torso") or myChar:FindFirstChild("LowerTorso")
+			local hrp = myChar:FindFirstChild("HumanoidRootPart")
+			local rootJoint = (torso and torso:FindFirstChild("RootJoint")) or (hrp and hrp:FindFirstChild("RootJoint"))
+			if rootJoint then rootJoint.C0 = CFrame.new() end
+		end
+	end)
+	stopAllSounds()
+	pcall(function() leaveSound:Destroy() end)
+	_G.EgoEmpireBangStorage = nil
+	task.wait(0.08)
+end
+
+_G.EgoEmpireBangStorage = {
+	CurrentGui = nil,
+	ActiveConnection = nil,
+	PlatformPart = nil,
+	BV = nil,
+	BG = nil,
+}
+
+-- Config
+local speedMultiplier = 17.4
+local forwardBackRange = 1.1
+local fixedUpOffset = 1.8
+local attachDistance = 0.4
+local multiSwitchInterval = 0.15 -- multi-target rotate speed (NEW)
+local isPaused = false -- NEW pause
+
+local targetMode = "Normal"
+local isAttached = false
+local selectedPlayers = {}
+local currentTargetIndex = 1
+local lastTargetSwitchTime = 0
+local selectedPlayer = nil
+local currentAutoSubMode = "Normal"
+local lastSwitchTime = 0
+local hardSync = true -- NEW: double-apply CFrame
+
+pcall(function()
+	local parent = player:FindFirstChild("PlayerGui") or workspace
+	sound1.Parent = parent
+	sound2.Parent = parent
+	sound3.Parent = parent
+	leaveSound.Parent = parent
+end)
+
+-- Anti-void / anti-die
+task.spawn(function()
+	while task.wait(0.5) do
+		if not _G.EgoEmpireBangStorage then break end
+		pcall(function()
+			if workspace.FallenPartsDestroyHeight ~= -500000 then
+				workspace.FallenPartsDestroyHeight = -500000
+			end
+			local hum = getHumanoid()
+			if hum then
+				hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+			end
+		end)
+	end
+end)
+
+-- =========================================================
+-- DEVICE SELECTOR — script start pe puchega PC ya PHONE
+-- =========================================================
+local selectedDevice = nil -- "PC" | "Mobile"
+
+local deviceGui = Instance.new("ScreenGui")
+deviceGui.Name = "EgoEmpireDeviceSelect"
+deviceGui.ResetOnSpawn = false
+deviceGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function()
+	deviceGui.Parent = player:WaitForChild("PlayerGui", 5)
+end)
+if not deviceGui.Parent then
+	pcall(function() deviceGui.Parent = game:GetService("CoreGui") end)
+end
+
+local dim = Instance.new("Frame", deviceGui)
+dim.Size = UDim2.new(1, 0, 1, 0)
+dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+dim.BackgroundTransparency = 0.45
+dim.BorderSizePixel = 0
+
+local popup = Instance.new("Frame", deviceGui)
+popup.Size = UDim2.new(0, 280, 0, 200)
+popup.Position = UDim2.new(0.5, -140, 0.5, -100)
+popup.BackgroundColor3 = Color3.fromRGB(4, 10, 4)
+popup.BackgroundTransparency = 0.08
+popup.BorderSizePixel = 0
+Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
+local popStroke = Instance.new("UIStroke", popup)
+popStroke.Color = Color3.fromRGB(0, 255, 70)
+popStroke.Thickness = 2
+popStroke.Transparency = 0.2
+
+local popTitle = Instance.new("TextLabel", popup)
+popTitle.Size = UDim2.new(1, -20, 0, 28)
+popTitle.Position = UDim2.new(0, 10, 0, 16)
+popTitle.BackgroundTransparency = 1
+popTitle.Text = "> EGO_EMPIRE.exe"
+popTitle.TextColor3 = Color3.fromRGB(0, 255, 90)
+popTitle.Font = Enum.Font.Code
+popTitle.TextSize = 18
+
+local popSub = Instance.new("TextLabel", popup)
+popSub.Size = UDim2.new(1, -20, 0, 20)
+popSub.Position = UDim2.new(0, 10, 0, 48)
+popSub.BackgroundTransparency = 1
+popSub.Text = "select_device:"
+popSub.TextColor3 = Color3.fromRGB(80, 180, 80)
+popSub.Font = Enum.Font.Code
+popSub.TextSize = 12
+
+local pcBtn = Instance.new("TextButton", popup)
+pcBtn.Size = UDim2.new(0, 110, 0, 48)
+pcBtn.Position = UDim2.new(0.5, -120, 0, 100)
+pcBtn.BackgroundColor3 = Color3.fromRGB(0, 40, 15)
+pcBtn.BackgroundTransparency = 0.1
+pcBtn.Text = "🖥 PC"
+pcBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+pcBtn.Font = Enum.Font.Code
+pcBtn.TextSize = 16
+pcBtn.BorderSizePixel = 0
+Instance.new("UICorner", pcBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", pcBtn).Color = Color3.fromRGB(0, 200, 80)
+
+local phoneBtn = Instance.new("TextButton", popup)
+phoneBtn.Size = UDim2.new(0, 110, 0, 48)
+phoneBtn.Position = UDim2.new(0.5, 10, 0, 100)
+phoneBtn.BackgroundColor3 = Color3.fromRGB(0, 30, 40)
+phoneBtn.BackgroundTransparency = 0.1
+phoneBtn.Text = "📱 PHONE"
+phoneBtn.TextColor3 = Color3.fromRGB(100, 220, 255)
+phoneBtn.Font = Enum.Font.Code
+phoneBtn.TextSize = 16
+phoneBtn.BorderSizePixel = 0
+Instance.new("UICorner", phoneBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", phoneBtn).Color = Color3.fromRGB(0, 180, 220)
+
+pcBtn.MouseButton1Click:Connect(function()
+	selectedDevice = "PC"
+end)
+phoneBtn.MouseButton1Click:Connect(function()
+	selectedDevice = "Mobile"
+end)
+
+-- Wait until user picks
+repeat task.wait(0.05) until selectedDevice ~= nil
+pcall(function() deviceGui:Destroy() end)
+
+local isMobile = (selectedDevice == "Mobile")
+
+local W = isMobile and 200 or 270
+local H = isMobile and 355 or 465
+local FS = isMobile and 9 or 11
+local FS_TITLE = isMobile and 11 or 15
+local LIST_H = isMobile and 50 or 72
+local SLIDER_GAP = isMobile and 24 or 30
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EgoEmpireBangUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+do
+	local ok = pcall(function()
+		screenGui.Parent = player:WaitForChild("PlayerGui", 5)
+	end)
+	if not ok or not screenGui.Parent then
+		pcall(function()
+			screenGui.Parent = game:GetService("CoreGui")
+		end)
+	end
+end
+if not screenGui.Parent then
+	warn("[EGO EMPIRE] GUI parent failed")
+	return
+end
+_G.EgoEmpireBangStorage.CurrentGui = screenGui
+print("[EGO EMPIRE] device =", selectedDevice, "| parent =", screenGui.Parent:GetFullName())
+notify("EGO EMPIRE", selectedDevice .. " UI loaded", 2)
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, W, 0, H)
+mainFrame.Position = UDim2.new(0.5, -math.floor(W / 2), 0.5, -math.floor(H / 2))
+mainFrame.BackgroundColor3 = BG
+mainFrame.BackgroundTransparency = TRANSP
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, isMobile and 8 or 10)
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = ACCENT
+mainStroke.Thickness = 2
+mainStroke.Transparency = 0.15
+
+-- thin RGB top bar
+local rgbBar = Instance.new("Frame", mainFrame)
+rgbBar.Size = UDim2.new(1, 0, 0, 3)
+rgbBar.Position = UDim2.new(0, 0, 0, 0)
+rgbBar.BorderSizePixel = 0
+rgbBar.BackgroundColor3 = ACCENT
+Instance.new("UICorner", rgbBar).CornerRadius = UDim.new(0, 2)
+
+-- Header
+local headH = isMobile and 34 or 42
+local header = Instance.new("Frame", mainFrame)
+header.Size = UDim2.new(1, -12, 0, headH)
+header.Position = UDim2.new(0, 6, 0, isMobile and 6 or 8)
+header.BackgroundColor3 = BG_PANEL
+header.BackgroundTransparency = 0.2
+header.BorderSizePixel = 0
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 7)
+local headerStroke = Instance.new("UIStroke", header)
+headerStroke.Color = ACCENT
+headerStroke.Thickness = 1.2
+headerStroke.Transparency = 0.3
+
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, isMobile and -70 or -90, 0, isMobile and 16 or 22)
+title.Position = UDim2.new(0, isMobile and 6 or 10, 0, isMobile and 2 or 3)
+title.BackgroundTransparency = 1
+title.Text = isMobile and "> EGO.exe" or "> EGO_EMPIRE.exe"
+title.TextColor3 = ACCENT
+title.Font = Enum.Font.Code
+title.TextSize = FS_TITLE
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local subtitle = Instance.new("TextLabel", header)
+subtitle.Size = UDim2.new(1, isMobile and -70 or -90, 0, isMobile and 12 or 14)
+subtitle.Position = UDim2.new(0, isMobile and 6 or 10, 0, isMobile and 18 or 24)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = isMobile and "root@phone" or "root@bang ~# RGB_HACKER_UI"
+subtitle.TextColor3 = TEXT_DIM
+subtitle.Font = Enum.Font.Code
+subtitle.TextSize = isMobile and 8 or 9
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local ico = isMobile and 24 or 28
+local soundToggleBtn = Instance.new("TextButton", header)
+soundToggleBtn.Size = UDim2.new(0, ico, 0, ico)
+soundToggleBtn.Position = UDim2.new(1, -(ico * 2 + 8), 0, isMobile and 5 or 6)
+soundToggleBtn.BackgroundColor3 = BG
+soundToggleBtn.BackgroundTransparency = 0.3
+soundToggleBtn.Text = "🔊"
+soundToggleBtn.TextSize = isMobile and 11 or 14
+soundToggleBtn.TextColor3 = TEXT
+soundToggleBtn.BorderSizePixel = 0
+Instance.new("UICorner", soundToggleBtn).CornerRadius = UDim.new(0, 6)
+
+local animToggleBtn = Instance.new("TextButton", header)
+animToggleBtn.Size = UDim2.new(0, ico, 0, ico)
+animToggleBtn.Position = UDim2.new(1, -(ico + 4), 0, isMobile and 5 or 6)
+animToggleBtn.BackgroundColor3 = BG
+animToggleBtn.BackgroundTransparency = 0.3
+animToggleBtn.Text = "👤"
+animToggleBtn.TextSize = isMobile and 11 or 14
+animToggleBtn.TextColor3 = TEXT
+animToggleBtn.BorderSizePixel = 0
+Instance.new("UICorner", animToggleBtn).CornerRadius = UDim.new(0, 6)
+
+soundToggleBtn.MouseButton1Click:Connect(function()
+	soundMuted = not soundMuted
+	soundToggleBtn.Text = soundMuted and "🔕" or "🔊"
+	if soundMuted then stopAllSounds() end
+	if not soundMuted and isAttached then lastSoundTime = 0 end
+end)
+
+animToggleBtn.MouseButton1Click:Connect(function()
+	animMuted = not animMuted
+	if animMuted then
+		animToggleBtn.Text = "❌"
+		if activeTrack then activeTrack:Stop() activeTrack = nil end
+	else
+		animToggleBtn.Text = "👤"
+		if isAttached and not activeTrack then
+			local hum = getHumanoid()
+			if hum then
+				local anim = Instance.new("Animation")
+				anim.AnimationId = bangAnimId
+				activeTrack = hum:LoadAnimation(anim)
+				activeTrack.Looped = true
+				activeTrack:Play()
+				activeTrack:AdjustSpeed(speedMultiplier / 5)
+			end
+		end
+	end
+end)
+
+-- Floating open/close
+local toggleGuiBtn = Instance.new("TextButton", screenGui)
+toggleGuiBtn.Size = UDim2.new(0, 72, 0, 28)
+toggleGuiBtn.Position = UDim2.new(0, 12, 1, -48)
+toggleGuiBtn.BackgroundColor3 = BG
+toggleGuiBtn.BackgroundTransparency = TRANSP
+toggleGuiBtn.Text = "[ CLOSE ]"
+toggleGuiBtn.TextColor3 = ACCENT
+toggleGuiBtn.Font = Enum.Font.GothamBold
+toggleGuiBtn.TextSize = 11
+toggleGuiBtn.BorderSizePixel = 0
+Instance.new("UICorner", toggleGuiBtn).CornerRadius = UDim.new(0, 8)
+local tgStroke = Instance.new("UIStroke", toggleGuiBtn)
+tgStroke.Color = ACCENT
+tgStroke.Thickness = 1.2
+tgStroke.Transparency = 0.3
+
+toggleGuiBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+	toggleGuiBtn.Text = mainFrame.Visible and "[ CLOSE ]" or "[ OPEN ]"
+end)
+
+-- Drag
+local dragging, dragStart, startPos
+header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+-- Search
+local textBox = Instance.new("TextBox", mainFrame)
+textBox.Size = UDim2.new(1, -16, 0, 26)
+textBox.Position = UDim2.new(0, 8, 0, isMobile and 44 or 52)
+textBox.Size = UDim2.new(1, -16, 0, isMobile and 22 or 26)
+textBox.TextSize = FS
+textBox.PlaceholderText = "> search_target..."
+textBox.Text = ""
+textBox.BackgroundColor3 = Color3.fromRGB(0, 12, 0)
+textBox.BackgroundTransparency = 0.15
+textBox.TextColor3 = NAME_GREEN
+textBox.PlaceholderColor3 = ACCENT_DIM
+textBox.TextSize = 12
+textBox.Font = Enum.Font.Code
+textBox.BorderSizePixel = 0
+textBox.ClearTextOnFocus = false
+Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 5)
+local tbStroke = Instance.new("UIStroke", textBox)
+tbStroke.Color = ACCENT
+tbStroke.Thickness = 1
+tbStroke.Transparency = 0.4
+
+-- Player list
+local scrollingFrame = Instance.new("ScrollingFrame", mainFrame)
+scrollingFrame.Size = UDim2.new(1, -16, 0, LIST_H)
+scrollingFrame.Position = UDim2.new(0, 8, 0, isMobile and 68 or 84)
+scrollingFrame.BackgroundColor3 = BG_PANEL
+scrollingFrame.BackgroundTransparency = 0.3
+scrollingFrame.ScrollBarThickness = 3
+scrollingFrame.ScrollBarImageColor3 = ACCENT
+scrollingFrame.BorderSizePixel = 0
+scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+Instance.new("UICorner", scrollingFrame).CornerRadius = UDim.new(0, 6)
+local uiList = Instance.new("UIListLayout", scrollingFrame)
+uiList.Padding = UDim.new(0, 3)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+
+local counterLabel = Instance.new("TextLabel", mainFrame)
+counterLabel.Size = UDim2.new(1, -16, 0, 14)
+counterLabel.Position = UDim2.new(0, 8, 0, isMobile and 122 or 158)
+counterLabel.TextSize = FS
+counterLabel.BackgroundTransparency = 1
+counterLabel.Text = "targets_locked: 0"
+counterLabel.TextColor3 = NAME_GREEN
+counterLabel.Font = Enum.Font.Code
+counterLabel.TextSize = 11
+counterLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local function refreshCounter()
+	counterLabel.Text = "targets_locked: " .. tostring(#selectedPlayers)
+end
+
+-- Row buttons
+local clearBtn = Instance.new("TextButton", mainFrame)
+clearBtn.Size = UDim2.new(0.33, -8, 0, 22)
+clearBtn.Position = UDim2.new(0, 8, 0, isMobile and 136 or 174)
+clearBtn.Size = UDim2.new(0.33, -8, 0, isMobile and 18 or 22)
+clearBtn.TextSize = isMobile and 8 or 10
+clearBtn.Text = "CLEAR"
+clearBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+clearBtn.BackgroundTransparency = 0.2
+clearBtn.TextColor3 = DANGER
+clearBtn.Font = Enum.Font.GothamBold
+clearBtn.TextSize = 10
+clearBtn.BorderSizePixel = 0
+Instance.new("UICorner", clearBtn).CornerRadius = UDim.new(0, 6)
+
+local selectAllBtn = Instance.new("TextButton", mainFrame)
+selectAllBtn.Size = UDim2.new(0.33, -8, 0, 22)
+selectAllBtn.Position = UDim2.new(0.33, 4, 0, isMobile and 136 or 174)
+selectAllBtn.Size = UDim2.new(0.33, -8, 0, isMobile and 18 or 22)
+selectAllBtn.TextSize = isMobile and 8 or 10
+selectAllBtn.Text = "ALL"
+selectAllBtn.BackgroundColor3 = Color3.fromRGB(10, 35, 15)
+selectAllBtn.BackgroundTransparency = 0.2
+selectAllBtn.TextColor3 = OK
+selectAllBtn.Font = Enum.Font.GothamBold
+selectAllBtn.TextSize = 10
+selectAllBtn.BorderSizePixel = 0
+Instance.new("UICorner", selectAllBtn).CornerRadius = UDim.new(0, 6)
+
+local nextBtn = Instance.new("TextButton", mainFrame)
+nextBtn.Size = UDim2.new(0.33, -8, 0, 22)
+nextBtn.Position = UDim2.new(0.66, 0, 0, isMobile and 136 or 174)
+nextBtn.Size = UDim2.new(0.33, -8, 0, isMobile and 18 or 22)
+nextBtn.TextSize = isMobile and 8 or 10
+nextBtn.Text = "NEXT"
+nextBtn.BackgroundColor3 = BG_PANEL
+nextBtn.BackgroundTransparency = 0.15
+nextBtn.TextColor3 = ACCENT
+nextBtn.Font = Enum.Font.GothamBold
+nextBtn.TextSize = 10
+nextBtn.BorderSizePixel = 0
+Instance.new("UICorner", nextBtn).CornerRadius = UDim.new(0, 6)
+
+-- Mode cycle
+local modeBtn = Instance.new("TextButton", mainFrame)
+modeBtn.Size = UDim2.new(1, -16, 0, 26)
+modeBtn.Position = UDim2.new(0, 8, 0, isMobile and 158 or 202)
+modeBtn.Size = UDim2.new(1, -16, 0, isMobile and 22 or 26)
+modeBtn.TextSize = isMobile and 10 or 12
+modeBtn.Text = "MODE · NORMAL"
+modeBtn.BackgroundColor3 = BG_PANEL
+modeBtn.BackgroundTransparency = 0.2
+modeBtn.TextColor3 = TEXT
+modeBtn.Font = Enum.Font.GothamBold
+modeBtn.TextSize = 12
+modeBtn.BorderSizePixel = 0
+Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0, 7)
+local modeStroke = Instance.new("UIStroke", modeBtn)
+modeStroke.Color = ACCENT
+modeStroke.Thickness = 1.1
+modeStroke.Transparency = 0.35
+
+modeBtn.MouseButton1Click:Connect(function()
+	if targetMode == "Normal" then
+		targetMode = "Face Bang"
+		modeBtn.Text = "MODE · FACE BANG 🎯"
+		modeBtn.TextColor3 = Color3.fromRGB(255, 180, 80)
+	elseif targetMode == "Face Bang" then
+		targetMode = "Auto Switch"
+		modeBtn.Text = "MODE · AUTO SWITCH 🔄"
+		modeBtn.TextColor3 = Color3.fromRGB(120, 220, 255)
+	else
+		targetMode = "Normal"
+		modeBtn.Text = "MODE · NORMAL"
+		modeBtn.TextColor3 = TEXT
+	end
+	if isAttached then lastSoundTime = 0 end
+end)
+
+-- Extra feature row: PAUSE + SYNC
+local pauseBtn = Instance.new("TextButton", mainFrame)
+pauseBtn.Size = UDim2.new(0.5, -10, 0, 22)
+pauseBtn.Position = UDim2.new(0, 8, 0, isMobile and 184 or 234)
+pauseBtn.Size = UDim2.new(0.5, -10, 0, isMobile and 18 or 22)
+pauseBtn.Text = "PAUSE"
+pauseBtn.BackgroundColor3 = BG_PANEL
+pauseBtn.BackgroundTransparency = 0.15
+pauseBtn.TextColor3 = TEXT_DIM
+pauseBtn.Font = Enum.Font.Code
+pauseBtn.TextSize = isMobile and 8 or 10
+pauseBtn.BorderSizePixel = 0
+Instance.new("UICorner", pauseBtn).CornerRadius = UDim.new(0, 6)
+
+local syncBtn = Instance.new("TextButton", mainFrame)
+syncBtn.Size = UDim2.new(0.5, -10, 0, 22)
+syncBtn.Position = UDim2.new(0.5, 2, 0, isMobile and 184 or 234)
+syncBtn.Size = UDim2.new(0.5, -10, 0, isMobile and 18 or 22)
+syncBtn.Text = "SYNC✓"
+syncBtn.TextSize = isMobile and 8 or 10
+syncBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 10)
+syncBtn.BackgroundTransparency = 0.1
+syncBtn.TextColor3 = OK
+syncBtn.Font = Enum.Font.GothamBold
+syncBtn.TextSize = 10
+syncBtn.BorderSizePixel = 0
+Instance.new("UICorner", syncBtn).CornerRadius = UDim.new(0, 6)
+
+pauseBtn.MouseButton1Click:Connect(function()
+	isPaused = not isPaused
+	if isPaused then
+		pauseBtn.Text = "RESUME"
+		pauseBtn.TextColor3 = OK
+		notify("EGO EMPIRE", "Paused", 2)
+	else
+		pauseBtn.Text = "PAUSE"
+		pauseBtn.TextColor3 = TEXT_DIM
+		lastTargetSwitchTime = tick()
+		notify("EGO EMPIRE", "Resumed", 2)
+	end
+end)
+
+syncBtn.MouseButton1Click:Connect(function()
+	hardSync = not hardSync
+	if hardSync then
+		syncBtn.Text = "SYNC✓"
+		syncBtn.TextColor3 = OK
+		notify("EGO EMPIRE", "Hard SYNC ON", 2)
+	else
+		syncBtn.Text = "SYNC"
+		syncBtn.TextColor3 = TEXT_DIM
+		notify("EGO EMPIRE", "SYNC OFF", 2)
+	end
+end)
+
+-- Sliders
+local function createSlider(minY, labelText, minVal, maxVal, defaultVal, callback)
+	local label = Instance.new("TextLabel", mainFrame)
+	label.Size = UDim2.new(1, -16, 0, 13)
+	label.Position = UDim2.new(0, 8, 0, minY)
+	label.Text = labelText .. ": " .. tostring(defaultVal)
+	label.TextColor3 = ACCENT
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 10
+	label.BackgroundTransparency = 1
+	label.TextXAlignment = Enum.TextXAlignment.Left
+
+	local track = Instance.new("TextButton", mainFrame)
+	track.Size = UDim2.new(1, -16, 0, 4)
+	track.Position = UDim2.new(0, 8, 0, minY + 14)
+	track.BackgroundColor3 = Color3.fromRGB(40, 35, 10)
+	track.Text = ""
+	track.AutoButtonColor = false
+	track.BorderSizePixel = 0
+	Instance.new("UICorner", track).CornerRadius = UDim.new(0, 2)
+
+	local fill = Instance.new("Frame", track)
+	fill.Size = UDim2.new((defaultVal - minVal) / (maxVal - minVal), 0, 1, 0)
+	fill.BackgroundColor3 = ACCENT
+	fill.BorderSizePixel = 0
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 2)
+
+	local knob = Instance.new("Frame", track)
+	knob.Size = UDim2.new(0, 8, 0, 10)
+	knob.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -4, 0.5, -5)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 200)
+	knob.BorderSizePixel = 0
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 3)
+
+	local function updateSliderPosition(inputPositionX)
+		local relativeX = math.clamp((inputPositionX - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X), 0, 1)
+		knob.Position = UDim2.new(relativeX, -4, 0.5, -5)
+		fill.Size = UDim2.new(relativeX, 0, 1, 0)
+		local currentVal = math.floor((minVal + (relativeX * (maxVal - minVal))) * 10) / 10
+		label.Text = labelText .. ": " .. tostring(currentVal)
+		callback(currentVal)
+	end
+
+	local sliderDragging = false
+	track.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliderDragging = true
+			updateSliderPosition(input.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateSliderPosition(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliderDragging = false
+		end
+	end)
+end
+
+local sliderBase = isMobile and 208 or 262
+createSlider(sliderBase + SLIDER_GAP * 0, "EMOTE SPEED", 1, 40, speedMultiplier, function(v)
+	speedMultiplier = v
+	if activeTrack then activeTrack:AdjustSpeed(v / 5) end
+end)
+createSlider(sliderBase + SLIDER_GAP * 1, "STROKE", 0, 5, forwardBackRange, function(v) forwardBackRange = v end)
+createSlider(sliderBase + SLIDER_GAP * 2, "HEIGHT", -10, 10, fixedUpOffset, function(v) fixedUpOffset = v end)
+createSlider(sliderBase + SLIDER_GAP * 3, "DIST", 0, 15, attachDistance, function(v) attachDistance = v end)
+createSlider(sliderBase + SLIDER_GAP * 4, "SWITCH", 0.05, 2, multiSwitchInterval, function(v) multiSwitchInterval = v end)
+
+-- Main toggle — below SWITCH, no overlap
+local toggleButton = Instance.new("TextButton", mainFrame)
+toggleButton.Size = UDim2.new(1, -16, 0, isMobile and 26 or 30)
+toggleButton.Position = UDim2.new(0, 8, 0, isMobile and 328 or 422)
+toggleButton.TextSize = isMobile and 11 or 13
+toggleButton.Text = "> EXECUTE_BANG"
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 40, 10)
+toggleButton.BackgroundTransparency = 0.05
+toggleButton.TextColor3 = NAME_GREEN
+toggleButton.Font = Enum.Font.Code
+toggleButton.BorderSizePixel = 0
+Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 7)
+local startStroke = Instance.new("UIStroke", toggleButton)
+startStroke.Color = ACCENT
+startStroke.Thickness = 1.4
+startStroke.Transparency = 0.25
+
+local function stopBang()
+	isAttached = false
+	if _G.EgoEmpireBangStorage.ActiveConnection then
+		_G.EgoEmpireBangStorage.ActiveConnection:Disconnect()
+		_G.EgoEmpireBangStorage.ActiveConnection = nil
+	end
+	if _G.EgoEmpireBangStorage.PlatformPart then
+		_G.EgoEmpireBangStorage.PlatformPart:Destroy()
+		_G.EgoEmpireBangStorage.PlatformPart = nil
+	end
+	if _G.EgoEmpireBangStorage.BV then
+		_G.EgoEmpireBangStorage.BV:Destroy()
+		_G.EgoEmpireBangStorage.BV = nil
+	end
+	if _G.EgoEmpireBangStorage.BG then
+		_G.EgoEmpireBangStorage.BG:Destroy()
+		_G.EgoEmpireBangStorage.BG = nil
+	end
+	if activeTrack then activeTrack:Stop() activeTrack = nil end
+	stopAllSounds()
+	toggleButton.Text = "> EXECUTE_BANG"
+	toggleButton.BackgroundColor3 = Color3.fromRGB(0, 40, 10)
+	toggleButton.TextColor3 = NAME_GREEN
+	pcall(function()
+		local char = player.Character
+		if not char then return end
+		local torso = char:FindFirstChild("Torso") or char:FindFirstChild("LowerTorso")
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local rootJoint = (torso and torso:FindFirstChild("RootJoint")) or (hrp and hrp:FindFirstChild("RootJoint"))
+		if rootJoint then rootJoint.C0 = CFrame.new() end
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if hum then hum.PlatformStand = false end
+	end)
+end
+
+local function updateList()
+	for _, child in pairs(scrollingFrame:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	local filter = textBox.Text:lower()
+	if string.find(filter, "selected:") then filter = "" end
+	local count = 0
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player then
+			local match = filter == ""
+				or string.find(p.Name:lower(), filter, 1, true)
+				or string.find(p.DisplayName:lower(), filter, 1, true)
+			if match then
+				count = count + 1
+				local selected = table.find(selectedPlayers, p) ~= nil
+				local btn = Instance.new("TextButton")
+				btn.Size = UDim2.new(1, -4, 0, 22)
+				-- GREEN names (suggestion / list) — hacker style
+				btn.Text = (selected and "[✓] " or "[ ] ") .. p.DisplayName .. " @" .. p.Name
+				btn.BackgroundColor3 = selected and Color3.fromRGB(0, 40, 10) or Color3.fromRGB(0, 14, 4)
+				btn.BackgroundTransparency = 0.2
+				btn.TextColor3 = selected and NAME_SEL or NAME_GREEN -- selected = WHITE, else green
+				btn.TextSize = 11
+				btn.Font = Enum.Font.Code
+				btn.TextXAlignment = Enum.TextXAlignment.Left
+				btn.BorderSizePixel = 0
+				btn.Parent = scrollingFrame
+				Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
+				local rowStroke = Instance.new("UIStroke", btn)
+				rowStroke.Color = selected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 60, 20)
+				rowStroke.Thickness = 1
+				rowStroke.Transparency = selected and 0.15 or 0.55
+
+				btn.MouseButton1Click:Connect(function()
+					local index = table.find(selectedPlayers, p)
+					if index then
+						table.remove(selectedPlayers, index)
+					else
+						table.insert(selectedPlayers, p)
+					end
+					refreshCounter()
+					updateList()
+				end)
+			end
+		end
+	end
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(count * 25, 72))
+	refreshCounter()
+end
+
+clearBtn.MouseButton1Click:Connect(function()
+	selectedPlayers = {}
+	textBox.Text = ""
+	updateList()
+	if isAttached then stopBang() end
+end)
+
+selectAllBtn.MouseButton1Click:Connect(function()
+	selectedPlayers = {}
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player then
+			table.insert(selectedPlayers, p)
+		end
+	end
+	updateList()
+end)
+
+nextBtn.MouseButton1Click:Connect(function()
+	if #selectedPlayers == 0 then
+		notify("EGO EMPIRE", "No targets", 2)
+		return
+	end
+	currentTargetIndex = currentTargetIndex + 1
+	if currentTargetIndex > #selectedPlayers then currentTargetIndex = 1 end
+	selectedPlayer = selectedPlayers[currentTargetIndex]
+	lastTargetSwitchTime = tick()
+	if selectedPlayer then
+		notify("EGO EMPIRE", "Next: " .. selectedPlayer.DisplayName, 2)
+	end
+end)
+
+textBox:GetPropertyChangedSignal("Text"):Connect(function()
+	updateList()
+end)
+
+Players.PlayerAdded:Connect(function()
+	task.wait(0.3)
+	updateList()
+end)
+
+updateList()
+
+-- Leave tracker
+local function emergencyTargetShift()
+	lastTargetSwitchTime = 0
+	currentTargetIndex = 1
+	if #selectedPlayers > 0 then
+		selectedPlayer = selectedPlayers[1]
+	else
+		selectedPlayer = nil
+	end
+end
+
+Players.PlayerRemoving:Connect(function(leftPlayer)
+	local targetIdx = table.find(selectedPlayers, leftPlayer)
+	if not targetIdx then return end
+	table.remove(selectedPlayers, targetIdx)
+	emergencyTargetShift()
+	refreshCounter()
+	updateList()
+	notify("Target left", leftPlayer.DisplayName, 3)
+	pcall(function() leaveSound:Play() end)
+	if #selectedPlayers == 0 and isAttached then
+		stopBang()
+	end
+end)
+
+-- =========================================================
+-- BANG ENGINE (BodyVelocity + BodyGyro + platform)
+-- =========================================================
+toggleButton.MouseButton1Click:Connect(function()
+	if isAttached then
+		stopBang()
+		notify("EGO EMPIRE", "Bang stopped", 2)
+		return
+	end
+
+	-- clean dead refs
+	local clean = {}
+	for _, p in ipairs(selectedPlayers) do
+		if p and p.Parent and p ~= player then
+			table.insert(clean, p)
+		end
+	end
+	selectedPlayers = clean
+	refreshCounter()
+
+	if #selectedPlayers == 0 then
+		notify("EGO EMPIRE", "Pehle player SELECT karo (list me click)", 4)
+		return
+	end
+
+	local myChar = player.Character
+	if not myChar then
+		myChar = player.CharacterAdded:Wait()
+	end
+	local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+	if not myHRP then
+		myHRP = myChar:WaitForChild("HumanoidRootPart", 5)
+	end
+	if not myHRP then
+		notify("EGO EMPIRE", "Character not ready — wait & retry", 3)
+		return
+	end
+
+	isAttached = true
+	isPaused = false
+	pauseBtn.Text = "PAUSE"
+	pauseBtn.TextColor3 = TEXT_DIM
+	toggleButton.Text = "> KILL_PROCESS"
+	toggleButton.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+	toggleButton.TextColor3 = DANGER
+	lastSwitchTime = tick()
+	lastTargetSwitchTime = tick()
+	lastSoundTime = 0
+	currentTargetIndex = 1
+	selectedPlayer = selectedPlayers[currentTargetIndex]
+	currentAutoSubMode = "Normal"
+
+	pcall(function()
+		if _G.EgoEmpireBangStorage.BV then _G.EgoEmpireBangStorage.BV:Destroy() end
+		if _G.EgoEmpireBangStorage.BG then _G.EgoEmpireBangStorage.BG:Destroy() end
+		if _G.EgoEmpireBangStorage.PlatformPart then _G.EgoEmpireBangStorage.PlatformPart:Destroy() end
+		if _G.EgoEmpireBangStorage.ActiveConnection then _G.EgoEmpireBangStorage.ActiveConnection:Disconnect() end
+	end)
+
+	if not animMuted then
+		pcall(function()
+			local hum = getHumanoid()
+			if hum then
+				local anim = Instance.new("Animation")
+				anim.AnimationId = bangAnimId
+				activeTrack = hum:LoadAnimation(anim)
+				activeTrack.Looped = true
+				activeTrack:Play()
+				activeTrack:AdjustSpeed(speedMultiplier / 5)
+			end
+		end)
+	end
+
+	local bv = Instance.new("BodyVelocity")
+	bv.Name = "EgoEmpireBV"
+	bv.MaxForce = Vector3.new(1e15, 1e15, 1e15)
+	bv.Velocity = Vector3.new(0, 0, 0)
+	bv.Parent = myHRP
+	_G.EgoEmpireBangStorage.BV = bv
+
+	local bg = Instance.new("BodyGyro")
+	bg.Name = "EgoEmpireBG"
+	bg.MaxTorque = Vector3.new(1e15, 1e15, 1e15)
+	bg.P = 1e8
+	bg.D = 100
+	bg.CFrame = myHRP.CFrame
+	bg.Parent = myHRP
+	_G.EgoEmpireBangStorage.BG = bg
+
+	local platform = Instance.new("Part")
+	platform.Size = Vector3.new(12, 1, 12)
+	platform.Transparency = 1
+	platform.Anchored = true
+	platform.CanCollide = true
+	platform.Name = "EgoEmpirePlatform"
+	platform.Parent = workspace
+	_G.EgoEmpireBangStorage.PlatformPart = platform
+
+	_G.EgoEmpireBangStorage.ActiveConnection = RunService.Heartbeat:Connect(function()
+		if not isAttached or #selectedPlayers == 0 then return end
+		if isPaused then
+			if bv and bv.Parent then bv.Velocity = Vector3.new(0, 0, 0) end
+			return
+		end
+
+		-- rebind movers if lost
+		local charNow = player.Character
+		local hrpNow = charNow and charNow:FindFirstChild("HumanoidRootPart")
+		if hrpNow then
+			if not bv or not bv.Parent then
+				bv = Instance.new("BodyVelocity")
+				bv.Name = "EgoEmpireBV"
+				bv.MaxForce = Vector3.new(1e15, 1e15, 1e15)
+				bv.Velocity = Vector3.new(0, 0, 0)
+				bv.Parent = hrpNow
+				_G.EgoEmpireBangStorage.BV = bv
+			end
+			if not bg or not bg.Parent then
+				bg = Instance.new("BodyGyro")
+				bg.Name = "EgoEmpireBG"
+				bg.MaxTorque = Vector3.new(1e15, 1e15, 1e15)
+				bg.P = 1e8
+				bg.D = 100
+				bg.Parent = hrpNow
+				_G.EgoEmpireBangStorage.BG = bg
+			end
+		end
+
+		-- Multi-target rotate (custom interval)
+		if tick() - lastTargetSwitchTime >= multiSwitchInterval or not selectedPlayer then
+			lastTargetSwitchTime = tick()
+			currentTargetIndex = currentTargetIndex + 1
+			if currentTargetIndex > #selectedPlayers then currentTargetIndex = 1 end
+			selectedPlayer = selectedPlayers[currentTargetIndex]
+		end
+
+		if not selectedPlayer or not selectedPlayer.Character then return end
+
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hrp or not hum or not bv or not bg then return end
+
+		local targetHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+		local targetHead = selectedPlayer.Character:FindFirstChild("Head")
+		if not targetHRP then return end
+
+		local currentModeToRun = targetMode
+		if targetMode == "Auto Switch" then
+			if tick() - lastSwitchTime >= 1.0 then
+				lastSwitchTime = tick()
+				currentAutoSubMode = (currentAutoSubMode == "Normal") and "Face Bang" or "Normal"
+			end
+			currentModeToRun = currentAutoSubMode
+		end
+
+		handleAudioForMode(targetMode)
+
+		if targetHRP.Position.Y < -60 or targetHRP.Position.Y < (workspace.FallenPartsDestroyHeight + 15) then
+			bv.Velocity = Vector3.new(0, 0, 0)
+			if platform and platform.Parent then
+				platform.CFrame = hrp.CFrame * CFrame.new(0, -3.1, 0)
+			end
+			return
+		end
+
+		hum.PlatformStand = true
+
+		local timeFactor = tick() * speedMultiplier
+		local sineWave = math.sin(timeFactor)
+		local absSine = math.abs(sineWave)
+		local dynamicOffset = absSine * forwardBackRange
+		local tiltAngle = -sineWave * 0.15
+
+		local targetCFrame
+		if currentModeToRun == "Face Bang" then
+			local basePart = targetHead or targetHRP
+			targetCFrame = basePart.CFrame
+				* CFrame.new(0, fixedUpOffset, -attachDistance - dynamicOffset - 0.2)
+				* CFrame.Angles(0, math.pi, 0)
+				+ basePart.CFrame.LookVector * (sineWave * 0.7)
+		else
+			targetCFrame = targetHRP.CFrame
+				* CFrame.new(0, 0, attachDistance + dynamicOffset + 0.8 + sineWave)
+				* CFrame.Angles(tiltAngle + math.rad(sineWave * 15), 0, 0)
+		end
+
+		-- Sticky apply (+ hard sync)
+		hrp.CFrame = targetCFrame
+		bg.CFrame = targetCFrame
+		bv.Velocity = (targetCFrame.Position - hrp.Position) * 300
+		if hardSync then
+			hrp.CFrame = targetCFrame
+			hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+			hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+		end
+
+		if platform and platform.Parent then
+			platform.CFrame = targetCFrame * CFrame.new(0, -3.1, 0)
+		end
+
+		pcall(function()
+			local torso = char:FindFirstChild("Torso") or char:FindFirstChild("LowerTorso")
+			local rootJoint = (torso and torso:FindFirstChild("RootJoint")) or hrp:FindFirstChild("RootJoint")
+			if rootJoint then
+				local hipThrustAngle = math.rad(sineWave * (forwardBackRange * 15))
+				local jointOffsetZ = -absSine * (forwardBackRange * 0.2)
+				rootJoint.C0 = CFrame.new(0, 0, jointOffsetZ)
+					* CFrame.Angles((currentModeToRun == "Face Bang" and hipThrustAngle or -hipThrustAngle), 0, 0)
+			end
+		end)
+
+		pcall(function()
+			for _, v in pairs(char:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.CanCollide = false
+				end
+			end
+		end)
+	end)
+
+	notify("EGO EMPIRE", "Bang started · " .. tostring(#selectedPlayers) .. " target(s)", 3)
+end)
+
+-- RGB live border + title (hacker pulse)
+task.spawn(function()
+	local t = 0
+	while screenGui and screenGui.Parent do
+		t = t + 0.04
+		local c = rgbColor(t)
+		pcall(function()
+			if mainStroke then mainStroke.Color = c end
+			if headerStroke then headerStroke.Color = c end
+			if rgbBar then rgbBar.BackgroundColor3 = c end
+			if title then title.TextColor3 = c end
+			if toggleGuiBtn and tgStroke then tgStroke.Color = c end
+		end)
+		task.wait(0.04)
+	end
+end)
+
+print("> EGO_EMPIRE.exe loaded · RGB HACKER UI · green names")
