@@ -225,12 +225,12 @@ dim.BorderSizePixel = 0
 local popup = Instance.new("Frame", deviceGui)
 popup.Size = UDim2.new(0, 280, 0, 200)
 popup.Position = UDim2.new(0.5, -140, 0.5, -100)
-popup.BackgroundColor3 = `Color3.fromRGB(255, 140, 0)`
+popup.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 popup.BackgroundTransparency = 0.08
 popup.BorderSizePixel = 0
 Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
 local popStroke = Instance.new("UIStroke", popup)
-popStroke.Color = Color3.fromRGB(0, 255, 70)
+popStroke.Color = Color3.fromRGB(255, 140, 0)
 popStroke.Thickness = 2
 popStroke.Transparency = 0.2
 
@@ -238,7 +238,7 @@ local popTitle = Instance.new("TextLabel", popup)
 popTitle.Size = UDim2.new(1, -20, 0, 28)
 popTitle.Position = UDim2.new(0, 10, 0, 16)
 popTitle.BackgroundTransparency = 1
-popTitle.Text = "> EGO_EMPIRE.exe"
+popTitle.Text = "MUSIC BANG 😈"
 popTitle.TextColor3 = Color3.fromRGB(0, 255, 90)
 popTitle.Font = Enum.Font.Code
 popTitle.TextSize = 18
@@ -255,28 +255,28 @@ popSub.TextSize = 12
 local pcBtn = Instance.new("TextButton", popup)
 pcBtn.Size = UDim2.new(0, 110, 0, 48)
 pcBtn.Position = UDim2.new(0.5, -120, 0, 100)
-pcBtn.BackgroundColor3 = Color3.fromRGB(0, 40, 15)
+pcBtn.BackgroundColor3 = Color3.fromRGB(40, 15, 0)
 pcBtn.BackgroundTransparency = 0.1
-pcBtn.Text = "🖥 PC"
+pcBtn.Text = "PC 💀"
 pcBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
 pcBtn.Font = Enum.Font.Code
 pcBtn.TextSize = 16
 pcBtn.BorderSizePixel = 0
 Instance.new("UICorner", pcBtn).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", pcBtn).Color = Color3.fromRGB(0, 200, 80)
+Instance.new("UIStroke", pcBtn).Color = Color3.fromRGB(255, 200, 0)
 
 local phoneBtn = Instance.new("TextButton", popup)
 phoneBtn.Size = UDim2.new(0, 110, 0, 48)
 phoneBtn.Position = UDim2.new(0.5, 10, 0, 100)
-phoneBtn.BackgroundColor3 = Color3.fromRGB(0, 30, 40)
+phoneBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
 phoneBtn.BackgroundTransparency = 0.1
-phoneBtn.Text = "📱 PHONE"
-phoneBtn.TextColor3 = Color3.fromRGB(100, 220, 255)
+phoneBtn.Text = "📱 ANDROID"
+phoneBtn.TextColor3 = Color3.fromRGB(255, 140, 0)
 phoneBtn.Font = Enum.Font.Code
 phoneBtn.TextSize = 16
 phoneBtn.BorderSizePixel = 0
 Instance.new("UICorner", phoneBtn).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", phoneBtn).Color = Color3.fromRGB(0, 180, 220)
+Instance.new("UIStroke", phoneBtn).Color = Color3.fromRGB(255, 180, 0)
 
 pcBtn.MouseButton1Click:Connect(function()
 	selectedDevice = "PC"
@@ -313,12 +313,12 @@ do
 	end
 end
 if not screenGui.Parent then
-	warn("[EGO EMPIRE] GUI parent failed")
+	warn("[ALPHA EMPIRE] GUI parent failed")
 	return
 end
 _G.EgoEmpireBangStorage.CurrentGui = screenGui
-print("[EGO EMPIRE] device =", selectedDevice, "| parent =", screenGui.Parent:GetFullName())
-notify("EGO EMPIRE", selectedDevice .. " UI loaded", 2)
+print("[ALPHA EMPIRE] device =", selectedDevice, "| parent =", screenGui.Parent:GetFullName())
+notify("ALPHA EMPIRE", selectedDevice .. " UI loaded", 2)
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, W, 0, H)
@@ -360,7 +360,7 @@ local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, isMobile and -70 or -90, 0, isMobile and 16 or 22)
 title.Position = UDim2.new(0, isMobile and 6 or 10, 0, isMobile and 2 or 3)
 title.BackgroundTransparency = 1
-title.Text = isMobile and "> EGO.exe" or "> EGO_EMPIRE.exe"
+title.Text = isMobile and "MUSIC BANG" or "AAYAN V3:"
 title.TextColor3 = ACCENT
 title.Font = Enum.Font.Code
 title.TextSize = FS_TITLE
@@ -370,7 +370,7 @@ local subtitle = Instance.new("TextLabel", header)
 subtitle.Size = UDim2.new(1, isMobile and -70 or -90, 0, isMobile and 12 or 14)
 subtitle.Position = UDim2.new(0, isMobile and 6 or 10, 0, isMobile and 18 or 24)
 subtitle.BackgroundTransparency = 1
-subtitle.Text = isMobile and "root@phone" or "root@bang ~# RGB_HACKER_UI"
+subtitle.Text = isMobile and "><SYSTEM.ZZ" or "ZZ.AE.SHIS"
 subtitle.TextColor3 = TEXT_DIM
 subtitle.Font = Enum.Font.Code
 subtitle.TextSize = isMobile and 8 or 9
@@ -430,7 +430,7 @@ end)
 -- Floating open/close
 local toggleGuiBtn = Instance.new("TextButton", screenGui)
 toggleGuiBtn.Size = UDim2.new(0, 72, 0, 28)
-toggleGuiBtn.Position = UDim2.new(0, 12, 1, -48)
+toggleGuiBtn.Position = UDim2.new(0, 12, 1, -65)
 toggleGuiBtn.BackgroundColor3 = BG
 toggleGuiBtn.BackgroundTransparency = TRANSP
 toggleGuiBtn.Text = "[ CLOSE ]"
@@ -478,7 +478,7 @@ textBox.Size = UDim2.new(1, -16, 0, isMobile and 22 or 26)
 textBox.TextSize = FS
 textBox.PlaceholderText = "> search_target..."
 textBox.Text = ""
-textBox.BackgroundColor3 = Color3.fromRGB(0, 12, 0)
+textBox.BackgroundColor3 = Color3.fromRGB(40, 10, 0)
 textBox.BackgroundTransparency = 0.15
 textBox.TextColor3 = NAME_GREEN
 textBox.PlaceholderColor3 = ACCENT_DIM
@@ -529,7 +529,7 @@ clearBtn.Position = UDim2.new(0, 8, 0, isMobile and 136 or 174)
 clearBtn.Size = UDim2.new(0.33, -8, 0, isMobile and 18 or 22)
 clearBtn.TextSize = isMobile and 8 or 10
 clearBtn.Text = "CLEAR"
-clearBtn.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+clearBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 clearBtn.BackgroundTransparency = 0.2
 clearBtn.TextColor3 = DANGER
 clearBtn.Font = Enum.Font.GothamBold
@@ -543,7 +543,7 @@ selectAllBtn.Position = UDim2.new(0.33, 4, 0, isMobile and 136 or 174)
 selectAllBtn.Size = UDim2.new(0.33, -8, 0, isMobile and 18 or 22)
 selectAllBtn.TextSize = isMobile and 8 or 10
 selectAllBtn.Text = "ALL"
-selectAllBtn.BackgroundColor3 = Color3.fromRGB(10, 35, 15)
+selectAllBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
 selectAllBtn.BackgroundTransparency = 0.2
 selectAllBtn.TextColor3 = OK
 selectAllBtn.Font = Enum.Font.GothamBold
@@ -587,15 +587,15 @@ modeStroke.Transparency = 0.35
 modeBtn.MouseButton1Click:Connect(function()
 	if targetMode == "Normal" then
 		targetMode = "Face Bang"
-		modeBtn.Text = "MODE · FACE BANG 🎯"
+		modeBtn.Text = "MODE>|FACE BANG 🎯"
 		modeBtn.TextColor3 = Color3.fromRGB(255, 180, 80)
 	elseif targetMode == "Face Bang" then
 		targetMode = "Auto Switch"
-		modeBtn.Text = "MODE · AUTO SWITCH 🔄"
-		modeBtn.TextColor3 = Color3.fromRGB(120, 220, 255)
+		modeBtn.Text = "MODE>|AUTO SWITCH 🔄"
+		modeBtn.TextColor3 = Color3.fromRGB(255, 180, 0)
 	else
 		targetMode = "Normal"
-		modeBtn.Text = "MODE · NORMAL"
+		modeBtn.Text = "MODE>|NORMAL"
 		modeBtn.TextColor3 = TEXT
 	end
 	if isAttached then lastSoundTime = 0 end
@@ -621,7 +621,7 @@ syncBtn.Position = UDim2.new(0.5, 2, 0, isMobile and 184 or 234)
 syncBtn.Size = UDim2.new(0.5, -10, 0, isMobile and 18 or 22)
 syncBtn.Text = "SYNC✓"
 syncBtn.TextSize = isMobile and 8 or 10
-syncBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 10)
+syncBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
 syncBtn.BackgroundTransparency = 0.1
 syncBtn.TextColor3 = OK
 syncBtn.Font = Enum.Font.GothamBold
@@ -634,12 +634,12 @@ pauseBtn.MouseButton1Click:Connect(function()
 	if isPaused then
 		pauseBtn.Text = "RESUME"
 		pauseBtn.TextColor3 = OK
-		notify("EGO EMPIRE", "Paused", 2)
+		notify("ALPHA EMPIRE", "Paused", 2)
 	else
 		pauseBtn.Text = "PAUSE"
 		pauseBtn.TextColor3 = TEXT_DIM
 		lastTargetSwitchTime = tick()
-		notify("EGO EMPIRE", "Resumed", 2)
+		notify("ALPHA EMPIRE", "Resumed", 2)
 	end
 end)
 
@@ -648,11 +648,11 @@ syncBtn.MouseButton1Click:Connect(function()
 	if hardSync then
 		syncBtn.Text = "SYNC✓"
 		syncBtn.TextColor3 = OK
-		notify("EGO EMPIRE", "Hard SYNC ON", 2)
+		notify("ALPHA EMPIRE", "Hard SYNC ON", 2)
 	else
 		syncBtn.Text = "SYNC"
 		syncBtn.TextColor3 = TEXT_DIM
-		notify("EGO EMPIRE", "SYNC OFF", 2)
+		notify("ALPHA EMPIRE", "SYNC OFF", 2)
 	end
 end)
 
@@ -671,7 +671,7 @@ local function createSlider(minY, labelText, minVal, maxVal, defaultVal, callbac
 	local track = Instance.new("TextButton", mainFrame)
 	track.Size = UDim2.new(1, -16, 0, 4)
 	track.Position = UDim2.new(0, 8, 0, minY + 14)
-	track.BackgroundColor3 = Color3.fromRGB(40, 35, 10)
+	track.BackgroundColor3 = Color3.fromRGB(40, 25, 10)
 	track.Text = ""
 	track.AutoButtonColor = false
 	track.BorderSizePixel = 0
@@ -686,7 +686,7 @@ local function createSlider(minY, labelText, minVal, maxVal, defaultVal, callbac
 	local knob = Instance.new("Frame", track)
 	knob.Size = UDim2.new(0, 8, 0, 10)
 	knob.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -4, 0.5, -5)
-	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 200)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 160, 80)
 	knob.BorderSizePixel = 0
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 3)
 
@@ -733,8 +733,8 @@ local toggleButton = Instance.new("TextButton", mainFrame)
 toggleButton.Size = UDim2.new(1, -16, 0, isMobile and 26 or 30)
 toggleButton.Position = UDim2.new(0, 8, 0, isMobile and 328 or 422)
 toggleButton.TextSize = isMobile and 11 or 13
-toggleButton.Text = "> EXECUTE_BANG"
-toggleButton.BackgroundColor3 = Color3.fromRGB(0, 40, 10)
+toggleButton.Text = "START 😼"
+toggleButton.BackgroundColor3 = Color3.fromRGB(40, 20, 0)
 toggleButton.BackgroundTransparency = 0.05
 toggleButton.TextColor3 = NAME_GREEN
 toggleButton.Font = Enum.Font.Code
@@ -765,8 +765,8 @@ local function stopBang()
 	end
 	if activeTrack then activeTrack:Stop() activeTrack = nil end
 	stopAllSounds()
-	toggleButton.Text = "> EXECUTE_BANG"
-	toggleButton.BackgroundColor3 = Color3.fromRGB(0, 40, 10)
+	toggleButton.Text = "START 😼"
+	toggleButton.BackgroundColor3 = Color3.fromRGB(40, 20, 0)
 	toggleButton.TextColor3 = NAME_GREEN
 	pcall(function()
 		local char = player.Character
@@ -799,7 +799,7 @@ local function updateList()
 				btn.Size = UDim2.new(1, -4, 0, 22)
 				-- GREEN names (suggestion / list) — hacker style
 				btn.Text = (selected and "[✓] " or "[ ] ") .. p.DisplayName .. " @" .. p.Name
-				btn.BackgroundColor3 = selected and Color3.fromRGB(0, 40, 10) or Color3.fromRGB(0, 14, 4)
+				btn.BackgroundColor3 = selected and Color3.fromRGB(40, 20, 0) or Color3.fromRGB(40, 10, 0)
 				btn.BackgroundTransparency = 0.2
 				btn.TextColor3 = selected and NAME_SEL or NAME_GREEN -- selected = WHITE, else green
 				btn.TextSize = 11
